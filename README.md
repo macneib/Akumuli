@@ -1,52 +1,45 @@
-README
+README [![Build Status](https://travis-ci.org/akumuli/Akumuli.svg?branch=master)](https://travis-ci.org/akumuli/Akumuli)
 ======
 
-**Akumuli** is a time-series database. The word "akumuli" can be translated from esperanto as "accumulate".
+[![Join the chat at https://gitter.im/akumuli/Akumuli](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/akumuli/Akumuli?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+**Akumuli** is a numeric time-series database.
+It can be used to capture, store and process time-series data in real-time.
+The word "akumuli" can be translated from esperanto as "accumulate".
 
-Rationale
----------
+Disclaimer
+----------
 
-Most open source projects focus on query language and things useful for web-analytics, but they ignore some serious problems:
+Akumuli is work in progress and not ready for production yet.
 
-* Dependencies on third-party software.
-* As a consequence, it's impossible to use them as embedded database.
-* Timestamps: they're doing it wrong!
-* General purpose storage engines don't work well for time-series data (low write throughput).
-* They can't fit in constant amount of disk space, like RRD-tool.
-
-For example, OpenTSDB depends on Hadoop and HBase and can't be used in embedded scenario. RRD-tool can be used in embedded scenario and uses constant amount of disk space, but has very slow and inefficient storage engine.
-
-Most systems round timestamps up to some value (for example, OpenTSDB rounds every timestamp up to one second). This makes it difficult or impossible to use these systems in process control domain. Worse than that, they only work with real timestamps (like UNIX time or UTC time). It means one can't use some other values as timestamps. For example, some sensors or ASICs can generate time-series data that contains sequence numbers that can be used as timestamps directly.
-
-This project was started to solve these issues. Akumuli is embedded time-series database, without dependency on third-party software or services, that implements custom storage engine designed specifically for time series data.
-
-Some characteristics of time series data
-----------------------------------------
-
-* High write throughput (millions of data-points per second)
-* Many time series data sources are periodical
-* Write depth is limited (very late writes can be dropped)
-
-These characteristics can be used to "cut corners" and optimize write and query performance.
 
 Features
---------
-* Implemented as dynamic C library
-* Memory mapped
-* x64 only
-* Uses constant amount of disk space (like RRD-tool)
-* Crash recovery
-* Very high write throughput
-* Allows unordered writes
-* Compressed (up to 3x)
-* Interpolation search and fast range scans
+-------
+
+* Log-structured storage. 
+* Row oriented at large scale, column oriented at small scale.
+* Crash recovery.
+* In-memory storage for recent data.
+* Accepts unordered data (at some configurable extent).
+* Real-time compression (up to 2.5 bytes per element on appropriate data).
+* Simple query language based on JSON over HTTP.
+* Query results returned using chunked transfer encoding at rate about 50MB/second (about 1M data points/second).
+* Series are organized using metrics and tags.
+* Time-series can be grouped by time (find aggregate for each 5sec interval).
+* Time-series can be joined together by tags.
+* Resampling (PAA transform), sliding window methods.
+* Random sampling.
+* Frequent items and heavy hitters.
+* SAX transformation.
+* Anomaly detection (SMA, EWMA, Holt-Winters).
+* Data ingestion through TCP or UDP based protocols (over 1M data points/second).
+* Continuous queries (streaming).
+
  
 Documentation
 -------------
 * [Wiki](https://github.com/akumuli/Akumuli/wiki)
 * [Getting started](https://github.com/akumuli/Akumuli/wiki/Getting-started)
-* [API reference](https://github.com/akumuli/Akumuli/wiki/API-Reference)
 
 How to build
 ------------
@@ -69,7 +62,7 @@ In case automatic script didn't work:
   
 * APR:
 
-  `sudo apt-get install libapr1`
+  `sudo apt-get install libapr1-dev libaprutil1-dev`
 
 * Cmake:
 
@@ -80,6 +73,49 @@ In case automatic script didn't work:
 1. `cmake .`
 1. `make -j`
 
+### Centos 7 / RHEL7 / Fedora?
+#### Prerequisites
+##### Semiautomatic
+* RHEL has an old version of boost that didn't really support coroutines (It's 1.53, which should contain coroutines, but compiling fails). At the time of writing, Akumulid needs boost 1.54 PRECISELY, so uninstall the original and get version 1.54 from the boost website:
+```
+wget 'http://downloads.sourceforge.net/project/boost/boost/1.54.0/boost_1_54_0.tar.gz'
+tar -xzvf boost_1_54_0.tar.gz
+cd boost_1_54_0
+./bootstrap.sh --prefix=/usr --libdir=/usr/lib64
+./b2 -j4 
+#Go get some coffee (-j4: Use four cores)...
+./b2 install
+#Go get some more coffee...
+```
+* We're assuming x86_64, otherwise, adapt libdir accordingly
+* If there are errors `quadmath.h: No such file or directory`, do: `yum install libquadmath-devel`
+* If there are errors `bzlib.h: No such file or directory`, do: `yum install bzip2-devel`
+* If there are errors `pyconfig.h: No such file or directory`, do: `yum install python-devel`
+* Then run `prerequisites.sh` to install the remaining libraries
+
+#### Building
+
+1. `cmake .`
+1. `make -j`
+1. `make`
+
+### Centos 6 / RHEL6
+#### Prequisites
+* Same as for RHEL7, but we need to manually install log4cxx, as there isn't a package in the repos:
+```
+wget http://www.pirbot.com/mirrors/apache/logging/log4cxx/0.10.0/apache-log4cxx-0.10.0.tar.gz
+tar -xzvf apache-log4cxx-0.10.0.tar.gz 
+cd apache-log4cxx-0.10.0
+```
+* Add `#include <cstring>` to: `src/main/cpp/inputstreamreader.cpp`, `src/main/cpp/socketoutputstream.cpp` and `src/examples/cpp/console.cpp`
+* Add `#include <cstdio>` to: `src/examples/cpp/console.cpp`
+```
+./configure --prefix=/usr --libdir=/usr/lib64
+make -j4
+sudo make install
+```
+* Go on as for RHEL7
 Questions?
 ----------
 [Google group](https://groups.google.com/forum/#!forum/akumuli)
+[Trello board](https://trello.com/b/UO1sGA99)
